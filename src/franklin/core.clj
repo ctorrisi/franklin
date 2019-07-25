@@ -39,7 +39,7 @@ franklin.core
 (defn- bytes->base64-str [x] (String. ^"[B" (b64/encode x) "UTF-8"))
 (defn- base64->bytes [x] (b64/decode (.getBytes (slurp x))))
 
-(defn- ddb-num->clj-num
+(defn ddb-num->clj-num
   "Given a DynamoDB formatted number, converts into a Clojure number."
   [x]
   (let [str-len (count x)]
@@ -276,10 +276,10 @@ franklin.core
 
 (defn batch-write-item
   "Batch write item"
-  [table-context items]
+  [table-context {:keys [items] :as item-opts}]
   (loop [partitioned (partition 25 25 nil items)]
     (let [next-items (rest partitioned)]
-      (invoke-batch-write-item table-context (first partitioned))
+      (invoke-batch-write-item table-context (assoc item-opts :items (first partitioned)))
       (when (seq next-items)
         (recur next-items)))))
 
