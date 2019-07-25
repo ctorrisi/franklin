@@ -8,7 +8,7 @@
 
 (ns ^{:doc "The core Franklin library."
       :author "Corey Torrisi"}
-franklin.core
+  franklin.core
   (:require [clojure.string :as s]
             [clojure.data.codec.base64 :as b64]
             [cognitect.aws.client.api :as aws]
@@ -42,15 +42,14 @@ franklin.core
 (defn ddb-num->clj-num
   "Given a DynamoDB formatted number, converts into a Clojure number."
   [x]
-  (let [str-len (count x)]
-    (if (s/includes? x ".")
-      (bigdec x)
-      (condp #(< %2 %1) str-len
-        3 (Byte/parseByte x)
-        5 (Short/parseShort x)
-        10 (Integer/parseInt x)
-        19 (Long/parseLong x)
-        (bigint x)))))
+  (if (s/includes? x ".")
+    (bigdec x)
+    (condp #(< %2 %1) (count x)
+      3 (Byte/parseByte x)
+      5 (Short/parseShort x)
+      10 (Integer/parseInt x)
+      19 (Long/parseLong x)
+      (bigint x))))
 
 (defn- clj->ddb
   "Given a Clojure data type, converts into a DynamoDB data type."
@@ -241,7 +240,7 @@ franklin.core
                                         (assoc :Key (clj-item->ddb-key table-context (or item key))))))
 
 (defn get-item-raw
-  "GetItem with without response."
+  "GetItem with without aws-api response."
   [{:keys [table-name] :as table-context}
    {:keys [item key projections expr-attr-names return-cc]}]
   (invoke table-context :GetItem {:TableName                table-name
@@ -251,7 +250,7 @@ franklin.core
                                   :ReturnConsumedCapacity   return-cc}))
 
 (defn get-item
-  "GetItem request"
+  "GetItem request."
   [table-context item-opts]
   (-> (get-item-raw table-context item-opts)
       (update :Item #(ddb-item->clj-item %))))
@@ -276,7 +275,8 @@ franklin.core
 
 (defn batch-write-item
   "Batch write item"
-  [table-context {:keys [items] :as item-opts}]
+  [table-context
+   {:keys [items] :as item-opts}]
   (loop [partitioned (partition 25 25 nil items)]
     (let [next-items (rest partitioned)]
       (invoke-batch-write-item table-context (assoc item-opts :items (first partitioned)))
@@ -294,13 +294,7 @@ franklin.core
 
 (defn batch-get-item
   "Batch get item"
-  [{:keys [table-name] :as table-context} item-opts]
+  [{:keys [table-name] :as table-context}
+   item-opts]
   (-> (invoke table-context :BatchGetItem (make-batch-get-item-request table-context item-opts))
       (update-in [:Responses (keyword table-name)] ddb-vec->clj-vec)))
-
-; Convenience table-oriented functions
-
-(defn make-table-oriented-fn
-  "Convenience function to define a table and apply franklin functions."
-  [table-name & [client-opts]]
-  (partial (fn [f request] (f (make-table-context table-name client-opts) request))))
