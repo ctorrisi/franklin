@@ -4,6 +4,9 @@
 
 > A friendly turtle to harness the power of DynamoDB.
 
+[![Clojars Project](https://img.shields.io/clojars/v/ctorrisi/franklin.svg)](https://clojars.org/ctorrisi/franklin)
+[![cljdoc badge](https://cljdoc.org/badge/ctorrisi/franklin)](https://cljdoc.org/d/ctorrisi/franklin/CURRENT)
+
 ## Usage
 
 Leiningen and Boot
@@ -20,7 +23,7 @@ deps
 
 * minimal dependencies (only depends on [aws-api])
 * interact with clojure data types
-* provide table-centric querying and persistence operations
+* provide table-centric queries and persistence operations
 * provide sensible defaults
 * simple **and** easy
 
