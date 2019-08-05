@@ -2,6 +2,7 @@
 *.iml
 *.jar
 *.class
+*.xml
 /lib/
 /classes/
 /target/

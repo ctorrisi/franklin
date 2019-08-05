@@ -16,7 +16,8 @@
   (:import (clojure.lang BigInt)))
 
 (defn- assert-ddb-num [x]
-  (assert (<= (.precision (bigdec x)) 38) "DynamoDB limits its Number data type to 38 digits of precision.")
+  (assert (<= (.precision (bigdec x)) 38)
+          "DynamoDB limits its Number data type to 38 digits of precision.")
   x)
 
 (defn- ddb-num? [x]
@@ -39,16 +40,16 @@
 (defn- bytes->base64-str [x] (String. ^"[B" (b64/encode x) "UTF-8"))
 (defn- base64->bytes [x] (b64/decode (.getBytes (slurp x))))
 
-(defn ddb-num->clj-num
+(defn- ddb-num->clj-num
   "Given a DynamoDB formatted number, converts into a Clojure number."
   [x]
   (if (s/includes? x ".")
     (bigdec x)
     (condp #(< %2 %1) (count x)
-      3 (Byte/parseByte x)
-      5 (Short/parseShort x)
-      10 (Integer/parseInt x)
-      19 (Long/parseLong x)
+      3   (Byte/parseByte x)
+      5   (Short/parseShort x)
+      10  (Integer/parseInt x)
+      19  (Long/parseLong x)
       (bigint x))))
 
 (defn- clj->ddb
@@ -66,7 +67,7 @@
                     string? {:SS x}
                     ddb-num? {:NS (mapv str x)}
                     bytes? {:BS (mapv bytes->base64-str x)}
-                    (throw (Exception. "A set cannot contain unsupported types or values of more than one type.")))
+                    (throw (Exception. "All values in a set must be the same type and must be a supported type.")))
     (throw (Exception. (format "Unsupported value type: %s" (type x))))))
 
 (defn- ddb->clj
@@ -95,18 +96,33 @@
 (defn make-client [& [opts]] (aws/client (assoc opts :api :dynamodb)))
 (defn- get-client [opts] (or (:client opts) (make-client opts)))
 
-(defn invoke [client-opts op request]
+(defn invoke
+  "Wraps aws-api's invoke function accepts `client-opts` consisting of either a `cognitect.aws.client.api/client`
+  config map, or a map containing:
+
+  :client    - An existing aws-api DynamoDB client, consistent with Franklin's table context.
+
+  Alpha. Subject to change."
+  [client-opts op request]
   (aws/invoke (get-client client-opts) {:op      op
                                         :request request}))
 
-(defn describe-table [{:keys [table-name] :as table-context}]
+(defn describe-table
+  "DescribeTable request.
+
+  Alpha. Subject to change."
+  [{:keys [table-name] :as table-context}]
   (invoke table-context :DescribeTable {:TableName table-name}))
 
-(defn- describe-key-schema [{:keys [AttributeName KeyType]}]
+(defn- describe-key-schema
+  "Creates a mapped key-value pair of either :partition-key-name or :sort-key-name,
+   if the `KeyType` is HASH or RANGE, respectively."
+  [{:keys [AttributeName KeyType]}]
   {(if (= KeyType "HASH") :partition-key-name :sort-key-name) AttributeName})
 
 (defn make-table-context
-  "Given a `table-name` and an optional set of `client-opts`, constructs a map consisting of:
+  "Given a `table-name` and an optional set of `client-opts` in the same format as `cognitect.aws.client.api/client`
+  config map. `make-table-context` constructs a map consisting of:
 
   :client                 - The aws-api DynamoDB client.
   :table-name             - The name of the table.
@@ -139,6 +155,9 @@
       (throw (Exception. (format "Invalid sort key comparison-operator %s" comparator))))
     (s/join " " [sort-key-name comparator ":sk1"])))
 
+(defn- make-projection-expression [projections]
+  (when (seq projections) (s/join ", " (map #(name %) projections))))
+
 (defn- make-scan-query-base-request
   "Constructs the base request map common to Query and Scan."
   [{:keys [table-name]}
@@ -148,7 +167,7 @@
    :FilterExpression          filter-expr
    :ExpressionAttributeValues (when expr-attr-vals (clj-item->ddb-item expr-attr-vals))
    :ExclusiveStartKey         (when exclusive-start-key (clj-item->ddb-item exclusive-start-key))
-   :ProjectionExpression      (when (seq projections) (s/join ", " projections))
+   :ProjectionExpression      (make-projection-expression projections)
    :Limit                     limit
    :IndexName                 index-name
    :ConsistentRead            consistent-read?
@@ -173,31 +192,42 @@
                         :ScanIndexForward (when descending? false))))
 
 (defn query-raw
-  "Query request without converting items to Clojure data types."
+  "Query request without converting items to Clojure data types.
+
+  Alpha. Subject to change."
   [table-context query-opts]
   (invoke table-context :Query (make-query-request table-context query-opts)))
 
 (defn query
-  "Query request with items converted to Clojure data types."
+  "Query request with items converted to Clojure data types.
+
+  Alpha. Subject to change."
   [table-context query-opts]
   (-> (query-raw table-context query-opts)
       (update :Items #(mapv ddb-item->clj-item %))))
 
 (defn scan-raw
   "Scan with raw response."
-  [table-context {:keys [segment total-segments] :as scan-opts}]
+  [table-context
+   {:keys [segment total-segments] :as scan-opts}]
   (invoke table-context :Scan (-> (make-scan-query-base-request table-context scan-opts)
                                   (assoc :Segment segment
                                          :TotalSegments total-segments))))
 
 (defn scan
-  "Scan request with items converted to Clojure data types."
-  [table-context scan-opts]
-  (-> (scan-raw table-context scan-opts)
-      (update :Items #(mapv ddb-item->clj-item %))))
+  "Scan request with items converted to Clojure data types.
+
+  Alpha. Subject to change."
+  ([table-context]
+    (scan table-context {}))
+  ([table-context scan-opts]
+   (-> (scan-raw table-context scan-opts)
+       (update :Items #(mapv ddb-item->clj-item %)))))
 
 (defn query-latest
-  "Convenience function to query the latest result. Assumes sort-key is a timestamp."
+  "Convenience function to query the latest result. Assumes sort-key is a timestamp.
+
+  Alpha. Subject to change."
   [table-context query-opts]
   (query table-context (assoc query-opts :descending? true :limit 1)))
 
@@ -216,55 +246,69 @@
 
 (defn- clj-item->ddb-key
   "Converts a map to a key in the expected DynamoDB format."
-  [{:keys [key-keywords]} item]
+  [{:keys [key-keywords]}
+   item]
   (-> (select-keys item key-keywords)
       (clj-item->ddb-item)))
 
 (defn put-item
-  "PutItem request."
-  [table-context {:keys [item key] :as item-opts}]
+  "PutItem request.
+
+  Alpha. Subject to change."
+  [table-context
+   {:keys [item key] :as item-opts}]
   (invoke table-context :PutItem (-> (make-item-base-request table-context item-opts)
                                      (assoc :Item (clj-item->ddb-item (or item key))))))
 
 (defn update-item
-  "UpdateItem request."
-  [table-context {:keys [item key update-expr] :as item-opts}]
+  "UpdateItem request.
+
+  Alpha. Subject to change."
+  [table-context
+   {:keys [item key update-expr] :as item-opts}]
   (invoke table-context :UpdateItem (-> (make-item-base-request table-context item-opts)
                                         (assoc :Key (clj-item->ddb-key table-context (or item key))
                                                :UpdateExpression update-expr))))
 
 (defn delete-item
-  "DeleteItem request."
-  [table-context {:keys [item key] :as item-opts}]
+  "DeleteItem request.
+
+  Alpha. Subject to change."
+  [table-context
+   {:keys [item key] :as item-opts}]
   (invoke table-context :DeleteItem (-> (make-item-base-request table-context item-opts)
                                         (assoc :Key (clj-item->ddb-key table-context (or item key))))))
 
 (defn get-item-raw
-  "GetItem with without aws-api response."
+  "GetItem with without aws-api response.
+
+  Alpha. Subject to change."
   [{:keys [table-name] :as table-context}
    {:keys [item key projections expr-attr-names return-cc]}]
   (invoke table-context :GetItem {:TableName                table-name
                                   :Key                      (clj-item->ddb-key table-context (or item key))
-                                  :ProjectionExpression     (when (seq projections) (s/join ", " projections))
+                                  :ProjectionExpression     (make-projection-expression projections)
                                   :ExpressionAttributeNames expr-attr-names
                                   :ReturnConsumedCapacity   return-cc}))
 
 (defn get-item
-  "GetItem request."
+  "GetItem request.
+
+  Alpha. Subject to change."
   [table-context item-opts]
   (-> (get-item-raw table-context item-opts)
       (update :Item #(ddb-item->clj-item %))))
 
 (defn- make-batch-write-item-request-item
-  "Constructs an individual PutRequest or DeleteRequest map based on `delete?` attribute name key in the item map.
-  For convenience `delete?` is a reserved root-level attribute name when using `batch-write-item`."
+  "Constructs an individual PutRequest or DeleteRequest map based on `delete?` key in the item map.
+  For convenience, `delete?` is reserved and may not be used as a partition or sort key when using `batch-write-item`."
   [table-context item]
   (if (:delete? item)
     {:DeleteRequest {:Key (clj-item->ddb-key table-context item)}}
     {:PutRequest {:Item (clj-item->ddb-item item)}}))
 
 (defn- invoke-batch-write-item
-  "Invokes the BatchWriteItem request"
+  "Invokes the BatchWriteItem request."
   [{:keys [table-name] :as table-context}
    {:keys [items return-cc return-item-coll-metrics]}]
   (let [request-items (-> (map #(make-batch-write-item-request-item table-context %) items)
@@ -274,7 +318,9 @@
                                            :ReturnItemCollectionMetrics return-item-coll-metrics})))
 
 (defn batch-write-item
-  "Batch write item"
+  "Batch write item.
+
+  Alpha. Subject to change."
   [table-context
    {:keys [items] :as item-opts}]
   (loop [partitioned (partition 25 25 nil items)]
@@ -284,16 +330,18 @@
         (recur next-items)))))
 
 (defn- make-batch-get-item-request
-  "Constructs a BatchGetItem request map"
+  "Constructs a BatchGetItem request map."
   [{:keys [table-name]}
    {:keys [keys consistent? expr-attr-names projections]}]
   {:RequestItems {table-name {:Keys                     (vec (map #(clj-item->ddb-item %) keys))
                               :ConsistentRead           consistent?
                               :ExpressionAttributeNames expr-attr-names
-                              :ProjectionExpression     (when (seq projections) (s/join ", " projections))}}})
+                              :ProjectionExpression     (make-projection-expression projections)}}})
 
 (defn batch-get-item
-  "Batch get item"
+  "Batch get item.
+
+  Alpha. Subject to change."
   [{:keys [table-name] :as table-context}
    item-opts]
   (-> (invoke table-context :BatchGetItem (make-batch-get-item-request table-context item-opts))
