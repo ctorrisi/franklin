@@ -156,7 +156,7 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
 
 Thanks to:
 * [Peter Taoussanis](https://github.com/ptaoussanis) for [Faraday](https://github.com/ptaoussanis/faraday) and some inspiration for this library.
-* [James Reeves](https://github.com/weavejester) for [Rotary](https://github.com/weavejester/rotary) that Faraday was adapted from.
+* [James Reeves](https://github.com/weavejester) for [Rotary](https://github.com/weavejester/rotary) which Faraday was adapted from.
 * [Cognitect](https://github.com/cognitect) for [aws-api].
 * [Pixabay](https://pixabay.com) for the stock graphics.
 

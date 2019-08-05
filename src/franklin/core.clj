@@ -207,7 +207,7 @@
       (update :Items #(mapv ddb-item->clj-item %))))
 
 (defn scan-raw
-  "Scan with raw response."
+  "Scan request without converting items to Clojure data types."
   [table-context
    {:keys [segment total-segments] :as scan-opts}]
   (invoke table-context :Scan (-> (make-scan-query-base-request table-context scan-opts)
@@ -280,7 +280,7 @@
                                         (assoc :Key (clj-item->ddb-key table-context (or item key))))))
 
 (defn get-item-raw
-  "GetItem with without aws-api response.
+  "GetItem request without items converted to Clojure data types.
 
   Alpha. Subject to change."
   [{:keys [table-name] :as table-context}
@@ -292,7 +292,7 @@
                                   :ReturnConsumedCapacity   return-cc}))
 
 (defn get-item
-  "GetItem request.
+  "GetItem request with items converted to Clojure data types.
 
   Alpha. Subject to change."
   [table-context item-opts]
