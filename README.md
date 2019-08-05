@@ -32,7 +32,7 @@ deps
 * Supporting legacy operations
 * Full API coverage
 
-Use [aws-api] for legacy operations and operations not related to querying or persistence.
+Use [aws-api] for legacy operations and operations not related to queries or persistence.
 
 ## Operations
 
