@@ -60,8 +60,8 @@ The definition above is fine if your program is using a single table with defaul
 
 ```clojure
 (def ddb-client (f/make-client {:region "ap-southeast-2"}))
-(def ctx (f/make-table-context "user-location" {:client ddb-client}))
-(def other-ctx (f/make-table-context "user-details" {:client ddb-client}))
+(def ctx (f/make-table-context "user_location" {:client ddb-client}))
+(def other-ctx (f/make-table-context "user_details" {:client ddb-client}))
 ```
 
 ### put-item
