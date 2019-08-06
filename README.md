@@ -77,7 +77,7 @@ The definition above is fine if your program is using a single table with defaul
 (f/update-item ctx {:key {:user_name "corey"
                           :time_stamp 1564641545000}
                           :update-expr "set latitude = :lat"
-                          :expr-attr-vals {":lat" -37.809010}})
+                          :expr-attr-vals {:lat -37.809010}})
 ```
 
 ### get-item
@@ -111,6 +111,7 @@ The definition above is fine if your program is using a single table with defaul
     :ScannedCount 1}
 
 (f/query ctx {:partition-key "corey"
+              :sort-key      {:key-1 1564641545000}
               :projections   [:latitude "longitude"]})
 
 => {:Items [{:latitude -37.813629 :longitude 144.963058}]
