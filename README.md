@@ -127,16 +127,19 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
                                  {:user_name  "bob"
                                   :time_stamp 1564641575140}
                                  {:user_name  "corey"
+                                  :time_stamp 1564641545000
+                                  :delete?    true}
+                                 {:user_name  "corey"
                                   :time_stamp 100}
                                  {:user_name  "corey"
-                                  :time_stamp 1564641545000
-                                  :delete?    true}]})
+                                  :time_stamp 200}]})
 
 (f/scan ctx)
 
 => {:Items [{:time_stamp 1564641575140, :user_name "bob"}
+            {:time_stamp 1564641565850, :user_name "alice"}
             {:time_stamp 100, :user_name "corey"}
-            {:time_stamp 1564641565850, :user_name "alice"}]
+            {:time_stamp 200, :user_name "corey"}]
     :Count 3,
     :ScannedCount 3}
 ```
@@ -151,6 +154,16 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
 => {:Responses {:user_location [{:time_stamp 1564641565850, :user_name "alice"}
                                 {:time_stamp 1564641575140, :user_name "bob"}]}
     :UnprocessedKeys {}}
+```
+
+### query-latest
+```clojure
+(f/query-latest ctx {:partition-key "corey"})
+
+=> {:Items [{:time_stamp 200, :user_name "corey"}],
+    :Count 1,
+    :ScannedCount 1,
+    :LastEvaluatedKey {:time_stamp {:N "200"}, :user_name {:S "corey"}}}
 ```
 
 ## Credits
