@@ -156,14 +156,18 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
     :UnprocessedKeys {}}
 ```
 
-### query-latest
+### query-sorted-first-item
 ```clojure
-(f/query-latest ctx {:partition-key "corey"})
+(f/query-sorted-first-item ctx {:partition-key "corey"})
 
-=> {:Items [{:time_stamp 200, :user_name "corey"}],
-    :Count 1,
-    :ScannedCount 1,
-    :LastEvaluatedKey {:time_stamp {:N "200"}, :user_name {:S "corey"}}}
+=> {:time_stamp 100 :user_name "corey"}
+```
+
+### query-sorted-last-item
+```clojure
+(f/query-sorted-last-item ctx {:partition-key "corey"})
+
+=> {:time_stamp 200 :user_name "corey"}
 ```
 
 ## Credits

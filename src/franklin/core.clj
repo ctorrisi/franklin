@@ -83,12 +83,12 @@
       (some->>  (:L x)      (mapv ddb->clj))
       (when-let [m (:M x)]  (zipmap (mapv keyword (keys m))
                                     (mapv ddb->clj (vals m))))))
-(defn- attr-val-key [k]
+(defn- expr-attr-val-key [k]
   (if (keyword? k) (str k) k))
 
 (def ^:private ddb-item->clj-item (partial map-key-val-fns keyword ddb->clj))
 (def ^:private clj-item->ddb-item (partial map-key-val-fns clj->ddb))
-(def ^:private clj-expr-attr-vals->ddb-item (partial map-key-val-fns attr-val-key clj->ddb))
+(def ^:private clj-expr-attr-vals->ddb-item (partial map-key-val-fns expr-attr-val-key clj->ddb))
 
 (defn- ddb-vec->clj-vec
   "Given a vector of DynamoDB data typed items, converts into a vector of Clojure data typed items."
@@ -227,12 +227,17 @@
    (-> (scan-raw table-context scan-opts)
        (update :Items #(mapv ddb-item->clj-item %)))))
 
-(defn query-latest
-  "Convenience function to query the latest result. Assumes sort-key is a timestamp.
+(defn- query-sorted-item
+  "Performs a sort based on `descending?` on the sort-key for the specified `partition-key`.
 
   Alpha. Subject to change."
-  [table-context query-opts]
-  (query table-context (assoc query-opts :descending? true :limit 1)))
+  [descending? table-context query-opts]
+  (-> (query table-context (assoc query-opts :descending? descending? :limit 1))
+      (:Items)
+      (first)))
+
+(def query-sorted-first-item (partial query-sorted-item false))
+(def query-sorted-last-item (partial query-sorted-item true))
 
 (defn- make-item-base-request
   "Constructs the base request common to all item-based requests."
