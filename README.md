@@ -11,12 +11,12 @@
 
 Leiningen and Boot
 ```clojure
-[ctorrisi/franklin "0.0.1-alpha1"]
+[ctorrisi/franklin "0.0.1-alpha2"]
 ```
 
 deps
 ```clojure
-{:deps {ctorrisi/franklin {:mvn/version "0.0.1-alpha1"}}}
+{:deps {ctorrisi/franklin {:mvn/version "0.0.1-alpha2"}}}
 ```
 
 ## Friendly?
@@ -77,7 +77,7 @@ The definition above is fine if your program is using a single table with defaul
 (f/update-item ctx {:key {:user_name "corey"
                           :time_stamp 1564641545000}
                           :update-expr "set latitude = :lat"
-                          :expr-attr-vals {":lat" -37.809010}})
+                          :expr-attr-vals {:lat -37.809010}})
 ```
 
 ### get-item
@@ -111,6 +111,7 @@ The definition above is fine if your program is using a single table with defaul
     :ScannedCount 1}
 
 (f/query ctx {:partition-key "corey"
+              :sort-key      {:key-1 1564641545000}
               :projections   [:latitude "longitude"]})
 
 => {:Items [{:latitude -37.813629 :longitude 144.963058}]
@@ -126,16 +127,19 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
                                  {:user_name  "bob"
                                   :time_stamp 1564641575140}
                                  {:user_name  "corey"
+                                  :time_stamp 1564641545000
+                                  :delete?    true}
+                                 {:user_name  "corey"
                                   :time_stamp 100}
                                  {:user_name  "corey"
-                                  :time_stamp 1564641545000
-                                  :delete?    true}]})
+                                  :time_stamp 200}]})
 
 (f/scan ctx)
 
 => {:Items [{:time_stamp 1564641575140, :user_name "bob"}
+            {:time_stamp 1564641565850, :user_name "alice"}
             {:time_stamp 100, :user_name "corey"}
-            {:time_stamp 1564641565850, :user_name "alice"}]
+            {:time_stamp 200, :user_name "corey"}]
     :Count 3,
     :ScannedCount 3}
 ```
@@ -150,6 +154,20 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
 => {:Responses {:user_location [{:time_stamp 1564641565850, :user_name "alice"}
                                 {:time_stamp 1564641575140, :user_name "bob"}]}
     :UnprocessedKeys {}}
+```
+
+### query-sorted-first-item
+```clojure
+(f/query-sorted-first-item ctx {:partition-key "corey"})
+
+=> {:time_stamp 100 :user_name "corey"}
+```
+
+### query-sorted-last-item
+```clojure
+(f/query-sorted-last-item ctx {:partition-key "corey"})
+
+=> {:time_stamp 200 :user_name "corey"}
 ```
 
 ## Credits
