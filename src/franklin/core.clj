@@ -177,18 +177,21 @@
    :ReturnConsumedCapacity    return-cc
    :Select                    (when (empty? projections) select)})
 
-(defn- make-query-request
+(defn make-query-request
   "Constructs a Query request."
   [{:keys [partition-key-name sort-key-name] :as table-context}
    {:keys [partition-key sort-key descending?] :as query-opts}]
   (let [base-request (make-scan-query-base-request table-context query-opts)
-        comparator (or (:comparator sort-key) "=")
+        sort-key-kv (when (map? sort-key) (first sort-key))
+        comparator (if sort-key-kv (name (key sort-key-kv)) "=")
         key-condition-expr (str (str partition-key-name " = :pk")
                                 (when sort-key (str " AND " (make-sort-key-expr sort-key-name comparator))))
         expr-attr-vals (merge {":pk" (clj->ddb partition-key)}
-                              (when sort-key {":sk1" (clj->ddb (:key-1 sort-key))})
-                              (when (= "between" (str/lower-case comparator))
-                                {":sk2" (clj->ddb (:key-2 sort-key))})
+                              (when sort-key
+                                (if-let [between-vals (:between sort-key)]
+                                  (zipmap [":sk1" ":sk2"] (map #(clj->ddb %) between-vals))
+                                  (let [sort-key-val (if sort-key-kv (val sort-key-kv) sort-key)]
+                                    {":sk1" (clj->ddb sort-key-val)})))
                               (:ExpressionAttributeValues base-request))]
     (assoc base-request :KeyConditionExpression key-condition-expr
                         :ExpressionAttributeValues expr-attr-vals
@@ -227,7 +230,7 @@
    (-> (scan-raw table-context scan-opts)
        (update :Items #(mapv ddb-item->clj-item %)))))
 
-(defn- query-sorted-item
+(defn- query-item
   "Performs a sort based on `descending?` on the sort-key for the specified `partition-key`.
 
   Alpha. Subject to change."
@@ -236,8 +239,8 @@
       (:Items)
       (first)))
 
-(def query-sorted-first-item (partial query-sorted-item false))
-(def query-sorted-last-item (partial query-sorted-item true))
+(def query-first-item (partial query-item false))
+(def query-last-item (partial query-item true))
 
 (defn- make-item-base-request
   "Constructs the base request common to all item-based requests."

@@ -91,30 +91,45 @@ The definition above is fine if your program is using a single table with defaul
            :longitude 144.963058}}
 ```
 
-### scan
-```clojure
-(f/scan ctx)
-
-=> {:Items [{:user_name "corey" :latitude -37.80901 :longitude 144.963058 :time_stamp 1564641545000}]
-    :Count 1
-    :ScannedCount 1}
-```
-
 ### query
+
 ```clojure
 (f/query ctx {:partition-key "corey"
-              :sort-key      {:comparator "="  ; default
-                              :key-1 1564641545000}})
+              :sort-key      1564641545000})
 
 => {:Items [{:time_stamp 1564641545000 :user_name "corey" :latitude -37.813629 :longitude 144.963058}]
     :Count 1
     :ScannedCount 1}
 
 (f/query ctx {:partition-key "corey"
-              :sort-key      {:key-1 1564641545000}
+              :sort-key      {:between [1564641544999 1564641545001]}
               :projections   [:latitude "longitude"]})
 
 => {:Items [{:latitude -37.813629 :longitude 144.963058}]
+    :Count 1
+    :ScannedCount 1}
+```
+
+#### sort-key options
+
+Supports all of the comparison operators available in [DynamoDB's Query Key Condition Expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html).
+
+```clojure
+{:sort-key {:= x}}
+{:sort-key x} ; equals is implicit, same as above.
+{:sort-key {:< x}}
+{:sort-key {:<= x}}
+{:sort-key {:> x}}
+{:sort-key {:>= x}}
+{:sort-key {:between [x y]}}
+{:sort-key {:begins_with x}}
+```
+
+### scan
+```clojure
+(f/scan ctx)
+
+=> {:Items [{:user_name "corey" :latitude -37.80901 :longitude 144.963058 :time_stamp 1564641545000}]
     :Count 1
     :ScannedCount 1}
 ```
