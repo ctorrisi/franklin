@@ -11,12 +11,12 @@
 
 Leiningen and Boot
 ```clojure
-[ctorrisi/franklin "0.0.1-alpha4"]
+[ctorrisi/franklin "0.0.1-alpha5"]
 ```
 
 deps
 ```clojure
-{:deps {ctorrisi/franklin {:mvn/version "0.0.1-alpha4"}}}
+{:deps {ctorrisi/franklin {:mvn/version "0.0.1-alpha5"}}}
 ```
 
 ## Friendly?
@@ -123,6 +123,9 @@ Supports all of the comparison operators available in [DynamoDB's Query Key Cond
 {:sort-key {:>= x}}
 {:sort-key {:between [x y]}}
 {:sort-key {:begins_with x}}
+; also supports a lowercase string variant for the comparison operator, i.e.
+{:sort-key {"=" x}}
+{:sort-key {"between" [x y]}}
 ```
 
 ### scan

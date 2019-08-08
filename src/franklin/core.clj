@@ -188,7 +188,7 @@
                                 (when sort-key (str " AND " (make-sort-key-expr sort-key-name comparator))))
         expr-attr-vals (merge {":pk" (clj->ddb partition-key)}
                               (when sort-key
-                                (if-let [between-vals (:between sort-key)]
+                                (if-let [between-vals (or (:between sort-key) (get sort-key "between"))]
                                   (zipmap [":sk1" ":sk2"] (map #(clj->ddb %) between-vals))
                                   (let [sort-key-val (if sort-key-kv (val sort-key-kv) sort-key)]
                                     {":sk1" (clj->ddb sort-key-val)})))
