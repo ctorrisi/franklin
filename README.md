@@ -5,18 +5,18 @@
 > A friendly turtle to harness the power of DynamoDB.
 
 [![Clojars Project](https://img.shields.io/clojars/v/ctorrisi/franklin.svg)](https://clojars.org/ctorrisi/franklin)
-[![cljdoc badge](https://cljdoc.org/badge/ctorrisi/franklin)](https://cljdoc.org/d/ctorrisi/franklin/CURRENT)
+[![cljdoc badge](https://cljdoc.org/badge/ctorrisi/franklin)](https://cljdoc.org/d/ctorrisi/franklin)
 
 ## Usage
 
 Leiningen and Boot
 ```clojure
-[ctorrisi/franklin "0.0.1-alpha2"]
+[ctorrisi/franklin "0.0.1-alpha3"]
 ```
 
 deps
 ```clojure
-{:deps {ctorrisi/franklin {:mvn/version "0.0.1-alpha2"}}}
+{:deps {ctorrisi/franklin {:mvn/version "0.0.1-alpha3"}}}
 ```
 
 ## Friendly?
