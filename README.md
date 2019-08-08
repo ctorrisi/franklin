@@ -2,7 +2,7 @@
 
 [![](docs/franklin.png)](#)
 
-> A friendly turtle to harness the power of DynamoDB.
+> A friendly turtle-y companion to harness the power of DynamoDB.
 
 [![Clojars Project](https://img.shields.io/clojars/v/ctorrisi/franklin.svg)](https://clojars.org/ctorrisi/franklin)
 [![cljdoc badge](https://cljdoc.org/badge/ctorrisi/franklin)](https://cljdoc.org/d/ctorrisi/franklin)
@@ -22,17 +22,19 @@ deps
 ## Friendly?
 
 * minimal dependencies (only depends on [aws-api])
-* interact with clojure data types
-* provide table-centric queries and persistence operations
-* provide sensible defaults
-* simple **and** easy
+* idiomatic clojure
+* table-centric query and persistence operations
+* sensible defaults
+* simple _and_ easy
 
 ## Non-goals
 
 * Supporting legacy operations
-* Full API coverage
+* Coverage of all operations
 
 Use [aws-api] for legacy operations and operations not related to queries or persistence.
+
+> Franklin, my dear, I don't give a damn
 
 ## Operations
 
