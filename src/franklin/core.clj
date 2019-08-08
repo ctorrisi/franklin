@@ -177,7 +177,7 @@
    :ReturnConsumedCapacity    return-cc
    :Select                    (when (empty? projections) select)})
 
-(defn make-query-request
+(defn- make-query-request
   "Constructs a Query request."
   [{:keys [partition-key-name sort-key-name] :as table-context}
    {:keys [partition-key sort-key descending?] :as query-opts}]
