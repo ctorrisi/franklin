@@ -34,7 +34,7 @@ deps
 
 Use [aws-api] for legacy operations and operations not related to queries or persistence.
 
-> Franklin, my dear, I don't give a damn
+> Franklin, my dear, I don't give a damn.
 
 ## Operations
 
