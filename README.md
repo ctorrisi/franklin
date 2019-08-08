@@ -123,6 +123,9 @@ Supports all of the comparison operators available in [DynamoDB's Query Key Cond
 {:sort-key {:>= x}}
 {:sort-key {:between [x y]}}
 {:sort-key {:begins_with x}}
+; also supports a lower-case string variant for the comparison operator, i.e.
+{:sort-key {"=" x}}
+{:sort-key {"between" [x y]}}
 ```
 
 ### scan
