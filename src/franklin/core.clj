@@ -123,6 +123,23 @@
   [{:keys [AttributeName KeyType]}]
   {(if (= KeyType "HASH") :partition-key-name :sort-key-name) AttributeName})
 
+(defn describe-single [v]
+  (let [key-schema (->> (:KeySchema v)
+                        (mapv #(describe-key-schema %))
+                        (into {}))
+        key-keywords (->> (vals key-schema)
+                          (map keyword)
+                          (vec))]
+    (assoc key-schema :key-keywords key-keywords)))
+
+(defn describe-index-key-schema [m]
+  (persistent!
+    (reduce-kv (fn [m _ v]
+                 (let [index-name (keyword (:IndexName v))]
+                   (assoc! m index-name (describe-single v))))
+               (transient {})
+               m)))
+
 (defn make-table-context
   "Given a `table-name` and an optional set of `client-opts` in the same format as `cognitect.aws.client.api/client`
   config map. `make-table-context` constructs a map consisting of:
@@ -137,16 +154,12 @@
   [table-name & [client-opts]]
   (let [table-context {:client (get-client client-opts)
                        :table-name table-name}
-        key-schema (->> (describe-table table-context)
-                        (:Table)
-                        (:KeySchema)
-                        (mapv #(describe-key-schema %))
-                        (into {}))
-        key-keywords (->> (vals key-schema)
-                          (map #(keyword %))
-                          (vec)
-                          (assoc {} :key-keywords))]
-    (merge table-context key-schema key-keywords)))
+        table-description (:Table (describe-table table-context))
+        primary-index (describe-single table-description)
+        global-secondary-indices (describe-index-key-schema (:GlobalSecondaryIndexes table-description))]
+    (merge table-context
+           {:primary-index primary-index}
+           {:global-secondary-indices global-secondary-indices})))
 
 (defn- make-sort-key-expr
   "Given a `sort-key-name` and `comparator`, constructs a sort key expression string for the DynamoDB request."
@@ -225,7 +238,7 @@
 
   Alpha. Subject to change."
   ([table-context]
-    (scan table-context {}))
+   (scan table-context {}))
   ([table-context scan-opts]
    (-> (scan-raw table-context scan-opts)
        (update :Items #(mapv ddb-item->clj-item %)))))
