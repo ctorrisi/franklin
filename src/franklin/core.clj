@@ -11,8 +11,7 @@
   franklin.core
   (:require [clojure.string :as s]
             [clojure.data.codec.base64 :as b64]
-            [cognitect.aws.client.api :as aws]
-            [clojure.string :as str])
+            [cognitect.aws.client.api :as aws])
   (:import (clojure.lang BigInt)))
 
 (defn- assert-ddb-num [x]
@@ -123,7 +122,7 @@
   [{:keys [AttributeName KeyType]}]
   {(if (= KeyType "HASH") :partition-key-name :sort-key-name) AttributeName})
 
-(defn describe-single [v]
+(defn describe-single-index [v]
   (let [key-schema (->> (:KeySchema v)
                         (mapv #(describe-key-schema %))
                         (into {}))
@@ -136,7 +135,7 @@
   (persistent!
     (reduce-kv (fn [m _ v]
                  (let [index-name (keyword (:IndexName v))]
-                   (assoc! m index-name (describe-single v))))
+                   (assoc! m index-name (describe-single-index v))))
                (transient {})
                m)))
 
@@ -155,21 +154,24 @@
   (let [table-context {:client (get-client client-opts)
                        :table-name table-name}
         table-description (:Table (describe-table table-context))
-        primary-index (describe-single table-description)
+        primary-index (describe-single-index table-description)
         global-secondary-indices (describe-index-key-schema (:GlobalSecondaryIndexes table-description))]
     (merge table-context
            {:primary-index primary-index}
            {:global-secondary-indices global-secondary-indices})))
 
+(def ^:private equality-pattern     (re-pattern #"^(=|<|<=|>|>=)$"))
+(def ^:private between-pattern      (re-pattern #"^(?i)between$"))
+(def ^:private begins-with-pattern  (re-pattern #"^(?i)begins(-|_)with$"))
+
 (defn- make-sort-key-expr
   "Given a `sort-key-name` and `comparator`, constructs a sort key expression string for the DynamoDB request."
   [sort-key-name comparator]
-  (if (> (count comparator) 2)
-    (case (str/lower-case comparator)
-      "between" (str sort-key-name " BETWEEN :sk1 AND :sk2")
-      "begins_with" (str "begins_with (" sort-key-name ", :sk1)")
-      (throw (Exception. (format "Invalid sort key comparison-operator %s" comparator))))
-    (s/join " " [sort-key-name comparator ":sk1"])))
+  (condp #(some? (re-matches %1 %2)) comparator
+    equality-pattern (s/join " " [sort-key-name comparator ":sk1"])
+    between-pattern (str sort-key-name " BETWEEN :sk1 AND :sk2")
+    begins-with-pattern (str "begins_with (" sort-key-name ", :sk1)")
+    (throw (Exception. (format "Invalid sort key comparison-operator %s" comparator)))))
 
 (defn- make-projection-expression [projections]
   (when (seq projections) (s/join ", " (map #(name %) projections))))
@@ -192,11 +194,17 @@
 
 (defn- make-query-request
   "Constructs a Query request."
-  [{:keys [partition-key-name sort-key-name] :as table-context}
-   {:keys [partition-key sort-key descending?] :as query-opts}]
+  [{:keys [primary-index global-secondary-indices] :as table-context}
+   {:keys [partition-key index-name sort-key descending?] :as query-opts}]
   (let [base-request (make-scan-query-base-request table-context query-opts)
         sort-key-kv (when (map? sort-key) (first sort-key))
         comparator (if sort-key-kv (name (key sort-key-kv)) "=")
+        secondary-index (when index-name (get global-secondary-indices (keyword index-name)))
+        sort-key-name (when sort-key
+                        (-> (or secondary-index primary-index)
+                            (:sort-key-name)))
+        partition-key-name (-> (or secondary-index primary-index)
+                               (:partition-key-name))
         key-condition-expr (str (str partition-key-name " = :pk")
                                 (when sort-key (str " AND " (make-sort-key-expr sort-key-name comparator))))
         expr-attr-vals (merge {":pk" (clj->ddb partition-key)}

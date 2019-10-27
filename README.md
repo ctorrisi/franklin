@@ -11,12 +11,12 @@
 
 Leiningen and Boot
 ```clojure
-[ctorrisi/franklin "0.0.1-alpha5"]
+[ctorrisi/franklin "0.0.1-alpha7"]
 ```
 
 deps
 ```clojure
-{:deps {ctorrisi/franklin {:mvn/version "0.0.1-alpha5"}}}
+ctorrisi/franklin {:mvn/version "0.0.1-alpha7"}
 ```
 
 ## Friendly?
@@ -25,7 +25,7 @@ deps
 * idiomatic clojure
 * table-centric query and persistence operations
 * sensible defaults
-* simple _and_ easy
+* simple and easy
 
 ## Non-goals
 
@@ -33,8 +33,6 @@ deps
 * Coverage of all operations
 
 Use [aws-api] for legacy operations and operations not related to queries or persistence.
-
-> Franklin, my dear, I don't give a damn.
 
 ## Operations
 
@@ -44,7 +42,7 @@ All operations are centred around being executed on a single table (table-centri
 (ns franklin.example (:require [franklin.core :as f]))
 ```
 
-In order to demonstrate these operations, assume the following table named ``user_location`` exists with a ``String`` typed partition key named ``user_name`` and a ``Number`` typed sort key named ``time_stamp``.
+In order to demonstrate these operations, assume the following table named ``user_location`` exists with a ``String`` typed partition key named ``username`` and a ``Number`` typed sort key named ``tstamp``.
 
 ### make-table-context
 
@@ -68,27 +66,27 @@ The definition above is fine if your program is using a single table with defaul
 
 ### put-item
 ```clojure
-(f/put-item ctx {:item {:user_name "corey"
-                        :time_stamp 1564641545000
+(f/put-item ctx {:item {:username "corey"
+                        :tstamp 100
                         :latitude -37.813629
                         :longitude 144.963058}})
 ```
 
 ### update-item
 ```clojure
-(f/update-item ctx {:key {:user_name "corey"
-                          :time_stamp 1564641545000}
-                          :update-expr "set latitude = :lat"
-                          :expr-attr-vals {:lat -37.809010}})
+(f/update-item ctx {:key {:username "corey"
+                          :tstamp 100}
+                    :update-expr "set latitude = :lat"
+                    :expr-attr-vals {:lat -37.809010}})
 ```
 
 ### get-item
 ```clojure
-(f/get-item ctx {:key {:user_name "corey"
-                       :time_stamp 1564641545000}})
+(f/get-item ctx {:key {:username "corey"
+                       :tstamp 100}})
 
-=> {:Item {:user_name "corey"
-           :time_stamp 1564641545000
+=> {:Item {:username "corey"
+           :tstamp 100
            :latitude -37.80901
            :longitude 144.963058}}
 ```
@@ -97,14 +95,14 @@ The definition above is fine if your program is using a single table with defaul
 
 ```clojure
 (f/query ctx {:partition-key "corey"
-              :sort-key      1564641545000})
+              :sort-key      100})
 
-=> {:Items [{:time_stamp 1564641545000 :user_name "corey" :latitude -37.813629 :longitude 144.963058}]
+=> {:Items [{:tstamp 100 :username "corey" :latitude -37.813629 :longitude 144.963058}]
     :Count 1
     :ScannedCount 1}
 
 (f/query ctx {:partition-key "corey"
-              :sort-key      {:between [1564641544999 1564641545001]}
+              :sort-key      {:between [99 101]}
               :projections   [:latitude "longitude"]})
 
 => {:Items [{:latitude -37.813629 :longitude 144.963058}]
@@ -124,8 +122,8 @@ Supports all of the comparison operators available in [DynamoDB's Query Key Cond
 {:sort-key {:> x}}
 {:sort-key {:>= x}}
 {:sort-key {:between [x y]}}
-{:sort-key {:begins_with x}}
-; also supports a lowercase string variant for the comparison operator, i.e.
+{:sort-key {:begins-with x}}
+; also supports a string variant for the comparison operator, i.e.
 {:sort-key {"=" x}}
 {:sort-key {"between" [x y]}}
 ```
@@ -134,7 +132,7 @@ Supports all of the comparison operators available in [DynamoDB's Query Key Cond
 ```clojure
 (f/scan ctx)
 
-=> {:Items [{:user_name "corey" :latitude -37.80901 :longitude 144.963058 :time_stamp 1564641545000}]
+=> {:Items [{:username "corey" :latitude -37.80901 :longitude 144.963058 :tstamp 100}]
     :Count 1
     :ScannedCount 1}
 ```
@@ -142,37 +140,37 @@ Supports all of the comparison operators available in [DynamoDB's Query Key Cond
 ### batch-write-item
 To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the item's map.
 ```clojure
-(f/batch-write-item ctx {:items [{:user_name  "alice"
-                                  :time_stamp 1564641565850}
-                                 {:user_name  "bob"
-                                  :time_stamp 1564641575140}
-                                 {:user_name  "corey"
-                                  :time_stamp 1564641545000
-                                  :delete?    true}
-                                 {:user_name  "corey"
-                                  :time_stamp 100}
-                                 {:user_name  "corey"
-                                  :time_stamp 200}]})
+(f/batch-write-item ctx {:items [{:username  "alice"
+                                  :tstamp 100}
+                                 {:username  "bob"
+                                  :tstamp 100}
+                                 {:username  "corey"
+                                  :tstamp 200}
+                                 {:username  "corey"
+                                  :tstamp 300}
+                                 {:username  "corey"
+                                  :tstamp 100 
+                                  :delete?    true}]})
 
 (f/scan ctx)
 
-=> {:Items [{:time_stamp 1564641575140, :user_name "bob"}
-            {:time_stamp 1564641565850, :user_name "alice"}
-            {:time_stamp 100, :user_name "corey"}
-            {:time_stamp 200, :user_name "corey"}]
+=> {:Items [{:tstamp 100, :username "alice"}
+            {:tstamp 100, :username "bob"}
+            {:tstamp 200, :username "corey"}
+            {:tstamp 300, :username "corey"}]
     :Count 3,
     :ScannedCount 3}
 ```
 
 ### batch-get-item
 ```clojure
-(f/batch-get-item ctx {:keys [{:user_name  "alice"
-                               :time_stamp 1564641565850}
-                              {:user_name  "bob"
-                               :time_stamp 1564641575140}]})
+(f/batch-get-item ctx {:keys [{:username  "alice"
+                               :tstamp 100}
+                              {:username  "bob"
+                               :tstamp 100}]})
 
-=> {:Responses {:user_location [{:time_stamp 1564641565850, :user_name "alice"}
-                                {:time_stamp 1564641575140, :user_name "bob"}]}
+=> {:Responses {:user_location [{:tstamp 100, :username "alice"}
+                                {:tstamp 100, :username "bob"}]}
     :UnprocessedKeys {}}
 ```
 
@@ -180,14 +178,14 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
 ```clojure
 (f/query-first-item ctx {:partition-key "corey"})
 
-=> {:time_stamp 100 :user_name "corey"}
+=> {:tstamp 100 :username "corey"}
 ```
 
 ### query-last-item
 ```clojure
 (f/query-last-item ctx {:partition-key "corey"})
 
-=> {:time_stamp 200 :user_name "corey"}
+=> {:tstamp 200 :username "corey"}
 ```
 
 ## Credits
