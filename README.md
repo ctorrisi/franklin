@@ -140,25 +140,25 @@ Supports all of the comparison operators available in [DynamoDB's Query Key Cond
 ### batch-write-item
 To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the item's map.
 ```clojure
-(f/batch-write-item ctx {:items [{:username  "alice"
+(f/batch-write-item ctx {:items [{:username "alice"
                                   :tstamp 100}
-                                 {:username  "bob"
+                                 {:username "bob"
                                   :tstamp 100}
-                                 {:username  "corey"
+                                 {:username "corey"
                                   :tstamp 200}
-                                 {:username  "corey"
+                                 {:username "corey"
                                   :tstamp 300}
-                                 {:username  "corey"
+                                 {:username "corey"
                                   :tstamp 100 
-                                  :delete?    true}]})
+                                  :delete? true}]})
 
 (f/scan ctx)
 
-=> {:Items [{:tstamp 100, :username "alice"}
-            {:tstamp 100, :username "bob"}
-            {:tstamp 200, :username "corey"}
-            {:tstamp 300, :username "corey"}]
-    :Count 3,
+=> {:Items [{:tstamp 100 :username "alice"}
+            {:tstamp 100 :username "bob"}
+            {:tstamp 200 :username "corey"}
+            {:tstamp 300 :username "corey"}]
+    :Count 3
     :ScannedCount 3}
 ```
 
@@ -169,8 +169,8 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
                               {:username  "bob"
                                :tstamp 100}]})
 
-=> {:Responses {:user_location [{:tstamp 100, :username "alice"}
-                                {:tstamp 100, :username "bob"}]}
+=> {:Responses {:user_location [{:tstamp 100 :username "alice"}
+                                {:tstamp 100 :username "bob"}]}
     :UnprocessedKeys {}}
 ```
 
@@ -178,14 +178,14 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
 ```clojure
 (f/query-first-item ctx {:partition-key "corey"})
 
-=> {:tstamp 100 :username "corey"}
+=> {:tstamp 200 :username "corey"}
 ```
 
 ### query-last-item
 ```clojure
 (f/query-last-item ctx {:partition-key "corey"})
 
-=> {:tstamp 200 :username "corey"}
+=> {:tstamp 300 :username "corey"}
 ```
 
 ## Credits
