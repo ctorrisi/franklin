@@ -150,7 +150,8 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
                                   :tstamp 300}
                                  {:username "corey"
                                   :tstamp 100 
-                                  :delete? true}]})
+                                  :delete? true}]}
+                         :throttled-wait-ms 1000) ; optional, default is 1000 ms
 
 (f/scan ctx)
 

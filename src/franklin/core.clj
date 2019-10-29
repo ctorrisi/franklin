@@ -278,10 +278,12 @@
 
 (defn- clj-item->ddb-key
   "Converts a map to a key in the expected DynamoDB format."
-  [{:keys [key-keywords]}
+  [{:keys [index-name primary-index global-secondary-indices]}
    item]
-  (-> (select-keys item key-keywords)
-      (clj-item->ddb-item)))
+  (->> (if index-name (get global-secondary-indices (keyword index-name)) primary-index)
+       (:key-keywords)
+       (select-keys item)
+       (clj-item->ddb-item)))
 
 (defn put-item
   "PutItem request.
@@ -356,8 +358,14 @@
   [table-context
    {:keys [items] :as item-opts}]
   (loop [partitioned (partition 25 25 nil items)]
-    (let [next-items (rest partitioned)]
-      (invoke-batch-write-item table-context (assoc item-opts :items (first partitioned)))
+    (let [next-items (rest partitioned)
+          write-items (assoc item-opts :items (first partitioned))]
+      (loop []
+        (let [response (invoke-batch-write-item table-context write-items)]
+          (when-let [type (:__type response)]
+            (when (s/ends-with? type "ProvisionedThroughputExceededException")
+              (Thread/sleep (or (:throttled-wait-ms item-opts) 1000))
+              (recur)))))
       (when (seq next-items)
         (recur next-items)))))
 
