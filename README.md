@@ -11,12 +11,12 @@
 
 Leiningen and Boot
 ```clojure
-[ctorrisi/franklin "0.0.1-alpha10"]
+[ctorrisi/franklin "0.0.1-alpha11"]
 ```
 
 deps
 ```clojure
-ctorrisi/franklin {:mvn/version "0.0.1-alpha10"}
+ctorrisi/franklin {:mvn/version "0.0.1-alpha11"}
 ```
 
 ## Friendly?
@@ -37,6 +37,8 @@ Use [aws-api] for legacy operations and operations not related to queries or per
 ## Operations
 
 All operations are centred around being executed on a single table (table-centric).
+
+Modification operations return a `clojure.core.async/chan`, these operations have been marked with an asterisk (*).
 
 ```clojure
 (ns franklin.example (:require [franklin.core :as f]))
@@ -64,7 +66,7 @@ The definition above is fine if your program is using a single table with defaul
 (def other-ctx (f/make-table-context "user_details" {:client ddb-client}))
 ```
 
-### put-item
+### put-item*
 ```clojure
 (f/put-item ctx {:item {:username "corey"
                         :tstamp 100
@@ -72,7 +74,7 @@ The definition above is fine if your program is using a single table with defaul
                         :longitude 144.963058}})
 ```
 
-### update-item
+### update-item*
 ```clojure
 (f/update-item ctx {:key {:username "corey"
                           :tstamp 100}
@@ -137,7 +139,7 @@ Supports all of the comparison operators available in [DynamoDB's Query Key Cond
     :ScannedCount 1}
 ```
 
-### batch-write-item
+### batch-write-item*
 To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the item's map.
 ```clojure
 (f/batch-write-item ctx {:items [{:username "alice"
@@ -150,8 +152,7 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
                                   :tstamp 300}
                                  {:username "corey"
                                   :tstamp 100 
-                                  :delete? true}]}
-                         :throttled-wait-ms 1000) ; optional, default is 1000 ms
+                                  :delete? true}]})
 
 (f/scan ctx)
 

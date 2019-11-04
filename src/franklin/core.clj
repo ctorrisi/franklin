@@ -11,7 +11,9 @@
   franklin.core
   (:require [clojure.string :as s]
             [clojure.data.codec.base64 :as b64]
-            [cognitect.aws.client.api :as aws])
+            [cognitect.aws.client.api :as api]
+            [cognitect.aws.client.api.async :as aws]
+            [clojure.core.async :as a])
   (:import (clojure.lang BigInt)))
 
 (defn- assert-ddb-num [x]
@@ -95,26 +97,59 @@
   (-> (map #(ddb-item->clj-item %) x)
       (vec)))
 
-(defn make-client [& [opts]] (aws/client (assoc opts :api :dynamodb)))
+(defn make-client [& [opts]] (api/client (assoc opts :api :dynamodb)))
 (defn- get-client [opts] (or (:client opts) (make-client opts)))
 
+(def ^:private max-retries 30)
+(def ^:private base-delay 500)
+(def ^:private max-delay 20000)
+
+(defn- backoff
+  "Parameters and EqualJitterBackoffStrategy based on `aws-sdk-java`'s
+  `com.amazonaws.retry.PredefinedBackoffStrategies`."
+  [retries]
+  (when (< retries max-retries)
+    (let [retries (min retries max-retries)
+          delay (min (* (bit-shift-left 1 retries) base-delay) max-delay)
+          half-delay (/ delay 2)]
+      (+ half-delay (rand-int (+ half-delay 1))))))
+
+(defn- default-retriable?
+  "This `default-retriable?` differs from `cognitect.aws.retry.default-retriable?` to include throttled requests."
+  [response]
+  (or (seq (:UnprocessedItems response))
+      (contains? #{:cognitect.anomalies/busy
+                   :cognitect.anomalies/unavailable}
+                 (:cognitect.anomalies/category response))
+      (contains? #{"com.amazonaws.dynamodb.v20120810#ProvisionedThroughputExceededException"
+                   "com.amazonaws.dynamodb.v20120810#ThrottlingException"}
+                 (:__type response))))
+
 (defn invoke
-  "Wraps aws-api's invoke function accepts `client-opts` consisting of either a `cognitect.aws.client.api/client`
+  "Wraps aws-api's async invoke function accepts `client-opts` consisting of either a `cognitect.aws.client.api/client`
   config map, or a map containing:
 
   :client    - An existing aws-api DynamoDB client, consistent with Franklin's table context.
 
   Alpha. Subject to change."
+  [client-opts op request & [ch]]
+  (aws/invoke (get-client client-opts) {:op         op
+                                        :ch         ch
+                                        :request    request
+                                        :retriable? default-retriable?
+                                        :backoff    backoff}))
+
+(defn invoke-sync
+  "Blocking call to `invoke`."
   [client-opts op request]
-  (aws/invoke (get-client client-opts) {:op      op
-                                        :request request}))
+  (a/<!! (invoke client-opts op request)))
 
 (defn describe-table
   "DescribeTable request.
 
   Alpha. Subject to change."
   [{:keys [table-name] :as table-context}]
-  (invoke table-context :DescribeTable {:TableName table-name}))
+  (invoke-sync table-context :DescribeTable {:TableName table-name}))
 
 (defn- describe-key-schema
   "Creates a mapped key-value pair of either :partition-key-name or :sort-key-name,
@@ -123,12 +158,12 @@
   {(if (= KeyType "HASH") :partition-key-name :sort-key-name) AttributeName})
 
 (defn describe-single-index [v]
-  (let [key-schema (->> (:KeySchema v)
-                        (mapv #(describe-key-schema %))
-                        (into {}))
-        key-keywords (->> (vals key-schema)
-                          (map keyword)
-                          (vec))]
+  (let [key-schema    (->> (:KeySchema v)
+                           (mapv #(describe-key-schema %))
+                           (into {}))
+        key-keywords  (->> (vals key-schema)
+                           (map keyword)
+                           (vec))]
     (assoc key-schema :key-keywords key-keywords)))
 
 (defn describe-index-key-schema [m]
@@ -223,7 +258,7 @@
 
   Alpha. Subject to change."
   [table-context query-opts]
-  (invoke table-context :Query (make-query-request table-context query-opts)))
+  (invoke-sync table-context :Query (make-query-request table-context query-opts)))
 
 (defn query
   "Query request with items converted to Clojure data types.
@@ -237,9 +272,9 @@
   "Scan request without converting items to Clojure data types."
   [table-context
    {:keys [segment total-segments] :as scan-opts}]
-  (invoke table-context :Scan (-> (make-scan-query-base-request table-context scan-opts)
-                                  (assoc :Segment segment
-                                         :TotalSegments total-segments))))
+  (invoke-sync table-context :Scan (-> (make-scan-query-base-request table-context scan-opts)
+                                       (assoc :Segment segment
+                                              :TotalSegments total-segments))))
 
 (defn scan
   "Scan request with items converted to Clojure data types.
@@ -310,8 +345,8 @@
   Alpha. Subject to change."
   [table-context
    {:keys [item key] :as item-opts}]
-  (invoke table-context :DeleteItem (-> (make-item-base-request table-context item-opts)
-                                        (assoc :Key (clj-item->ddb-key table-context (or item key))))))
+  (invoke-sync table-context :DeleteItem (-> (make-item-base-request table-context item-opts)
+                                             (assoc :Key (clj-item->ddb-key table-context (or item key))))))
 
 (defn get-item-raw
   "GetItem request without items converted to Clojure data types.
@@ -319,11 +354,11 @@
   Alpha. Subject to change."
   [{:keys [table-name] :as table-context}
    {:keys [item key projections expr-attr-names return-cc]}]
-  (invoke table-context :GetItem {:TableName                table-name
-                                  :Key                      (clj-item->ddb-key table-context (or item key))
-                                  :ProjectionExpression     (make-projection-expression projections)
-                                  :ExpressionAttributeNames expr-attr-names
-                                  :ReturnConsumedCapacity   return-cc}))
+  (invoke-sync table-context :GetItem {:TableName           table-name
+                                       :Key                      (clj-item->ddb-key table-context (or item key))
+                                       :ProjectionExpression     (make-projection-expression projections)
+                                       :ExpressionAttributeNames expr-attr-names
+                                       :ReturnConsumedCapacity   return-cc}))
 
 (defn get-item
   "GetItem request with items converted to Clojure data types.
@@ -344,12 +379,11 @@
 (defn- invoke-batch-write-item
   "Invokes the BatchWriteItem request."
   [{:keys [table-name] :as table-context}
-   {:keys [items return-cc return-item-coll-metrics]}]
-  (let [request-items (-> (map #(make-batch-write-item-request-item table-context %) items)
-                          (vec))]
-    (invoke table-context :BatchWriteItem {:RequestItems                {table-name request-items}
-                                           :ReturnConsumedCapacity      return-cc
-                                           :ReturnItemCollectionMetrics return-item-coll-metrics})))
+   {:keys [request-items return-cc return-item-coll-metrics]}
+   ch]
+  (invoke table-context :BatchWriteItem {:RequestItems               {table-name request-items}
+                                         :ReturnConsumedCapacity      return-cc
+                                         :ReturnItemCollectionMetrics return-item-coll-metrics} ch))
 
 (defn batch-write-item
   "BatchWriteItem request.
@@ -357,17 +391,13 @@
   Alpha. Subject to change."
   [table-context
    {:keys [items] :as item-opts}]
-  (loop [partitioned (partition 25 25 nil items)]
-    (let [next-items (rest partitioned)
-          write-items (assoc item-opts :items (first partitioned))]
-      (loop []
-        (let [response (invoke-batch-write-item table-context write-items)]
-          (when-let [type (:__type response)]
-            (when (s/ends-with? type "ProvisionedThroughputExceededException")
-              (Thread/sleep (or (:throttled-wait-ms item-opts) 1000))
-              (recur)))))
-      (when (seq next-items)
-        (recur next-items)))))
+  (let [request-item-partitions (->> items
+                                     (map #(make-batch-write-item-request-item table-context %))
+                                     (partition-all 25))
+        ch (a/chan)]
+    (doseq [partition request-item-partitions]
+      (invoke-batch-write-item table-context (assoc item-opts :request-items partition) ch))
+    ch))
 
 (defn- make-batch-get-item-request
   "Constructs a BatchGetItem request map."
@@ -384,5 +414,5 @@
   Alpha. Subject to change."
   [{:keys [table-name] :as table-context}
    item-opts]
-  (-> (invoke table-context :BatchGetItem (make-batch-get-item-request table-context item-opts))
+  (-> (invoke-sync table-context :BatchGetItem (make-batch-get-item-request table-context item-opts))
       (update-in [:Responses (keyword table-name)] ddb-vec->clj-vec)))
