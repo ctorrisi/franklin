@@ -11,12 +11,12 @@
 
 Leiningen and Boot
 ```clojure
-[ctorrisi/franklin "0.0.1-alpha11"]
+[ctorrisi/franklin "0.0.1-alpha12"]
 ```
 
 deps
 ```clojure
-ctorrisi/franklin {:mvn/version "0.0.1-alpha11"}
+ctorrisi/franklin {:mvn/version "0.0.1-alpha12"}
 ```
 
 ## Friendly?
@@ -38,13 +38,57 @@ Use [aws-api] for legacy operations and operations not related to queries or per
 
 All operations are centred around being executed on a single table (table-centric).
 
-Modification operations return a `clojure.core.async/chan`, these operations have been marked with an asterisk (*).
-
 ```clojure
 (ns franklin.example (:require [franklin.core :as f]))
 ```
 
 In order to demonstrate these operations, assume the following table named ``user_location`` exists with a ``String`` typed partition key named ``username`` and a ``Number`` typed sort key named ``tstamp``.
+
+## Concurrency
+
+All operations can be either synchronous or asynchronous.
+
+### Synchronous by default
+* query
+* scan
+* query-first-item
+* query-last-item
+* get-item
+* batch-get-item
+
+#### Sync -> Async
+
+`assoc` a `clojure.core.async` channel to the `ch` key of the `item-opts` map.
+
+The result can be received asynchronously from the specified channel in `ch`.
+
+```clojure
+(def c (clojure.core.async/chan))
+
+(f/query ctx {:partition-key "pk1"
+              :ch c})
+```
+
+### Asynchronous by default
+* put-item
+* update-item
+* delete-item
+* batch-write-item
+
+The default `clojure.core.async` channel that is returned from these functions can be overridden by providing the `ch` key in the `item-opts` map.
+
+#### Async -> Sync
+
+`assoc` a truthy value to the `async?` key of your `item-opts`.
+
+```clojure
+(def c (clojure.core.async/chan))
+
+(f/put-item ctx {:item {:username "uname1"
+                        :tstamp 100}
+                 :ch c ; optional
+                 :async? true})
+```
 
 ### make-table-context
 
@@ -66,7 +110,7 @@ The definition above is fine if your program is using a single table with defaul
 (def other-ctx (f/make-table-context "user_details" {:client ddb-client}))
 ```
 
-### put-item*
+### put-item
 ```clojure
 (f/put-item ctx {:item {:username "corey"
                         :tstamp 100
@@ -74,7 +118,7 @@ The definition above is fine if your program is using a single table with defaul
                         :longitude 144.963058}})
 ```
 
-### update-item*
+### update-item
 ```clojure
 (f/update-item ctx {:key {:username "corey"
                           :tstamp 100}
@@ -87,10 +131,15 @@ The definition above is fine if your program is using a single table with defaul
 (f/get-item ctx {:key {:username "corey"
                        :tstamp 100}})
 
-=> {:Item {:username "corey"
-           :tstamp 100
-           :latitude -37.80901
-           :longitude 144.963058}}
+=> {:username "corey"
+    :tstamp 100
+    :latitude -37.80901
+    :longitude 144.963058}
+    
+(f/get-item ctx {:key {:username "corey"
+                       :tstamp 101}})
+
+=> {}
 ```
 
 ### query
@@ -139,7 +188,7 @@ Supports all of the comparison operators available in [DynamoDB's Query Key Cond
     :ScannedCount 1}
 ```
 
-### batch-write-item*
+### batch-write-item
 To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the item's map.
 ```clojure
 (f/batch-write-item ctx {:items [{:username "alice"
@@ -160,8 +209,8 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
             {:tstamp 100 :username "bob"}
             {:tstamp 200 :username "corey"}
             {:tstamp 300 :username "corey"}]
-    :Count 3
-    :ScannedCount 3}
+    :Count 4
+    :ScannedCount 4}
 ```
 
 ### batch-get-item
@@ -174,6 +223,20 @@ To delete an item, ``assoc`` the ``:delete?`` key with a truthy value in the ite
 => {:Responses {:user_location [{:tstamp 100 :username "alice"}
                                 {:tstamp 100 :username "bob"}]}
     :UnprocessedKeys {}}
+```
+
+### delete-item
+```clojure
+(f/delete-item ctx {:key {:username "alice"
+                          :tstamp 100}})
+
+(f/scan ctx)
+
+=> {:Items [{:tstamp 100 :username "bob"}
+            {:tstamp 200 :username "corey"}
+            {:tstamp 300 :username "corey"}]
+    :Count 3
+    :ScannedCount 3}
 ```
 
 ### query-first-item
