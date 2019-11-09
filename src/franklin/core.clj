@@ -393,7 +393,7 @@
 
   Alpha. Subject to change."
   [{:keys [table-name] :as table-context}
-   {:keys [items return-cc return-item-coll-metrics ch]}]
+   {:keys [items return-cc return-item-coll-metrics sync? ch]}]
   (let [request-item-partitions (->> items
                                      (map #(make-batch-write-item-request-item table-context %))
                                      (partition-all 25))
@@ -402,7 +402,12 @@
       (invoke-batch-write table-context {:RequestItems                {table-name request-items}
                                          :ReturnConsumedCapacity      return-cc
                                          :ReturnItemCollectionMetrics return-item-coll-metrics} result-chan))
-    result-chan))
+    (if sync?
+      (reduce conj
+              []
+              (repeatedly (count request-item-partitions)
+                          #(a/<!! result-chan)))
+      result-chan)))
 
 (defn batch-get-item
   "BatchGetItem request.
