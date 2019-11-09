@@ -34,16 +34,6 @@ ctorrisi/franklin {:mvn/version "0.0.1-alpha12"}
 
 Use [aws-api] for legacy operations and operations not related to queries or persistence.
 
-## Operations
-
-All operations are centred around being executed on a single table (table-centric).
-
-```clojure
-(ns franklin.example (:require [franklin.core :as f]))
-```
-
-In order to demonstrate these operations, assume the following table named ``user_location`` exists with a ``String`` typed partition key named ``username`` and a ``Number`` typed sort key named ``tstamp``.
-
 ## Concurrency
 
 All operations can be either synchronous or asynchronous.
@@ -87,8 +77,18 @@ The default `clojure.core.async` channel that is returned from these functions c
 (f/put-item ctx {:item {:username "uname1"
                         :tstamp 100}
                  :ch c ; optional
-                 :async? true})
+                 :sync? true})
 ```
+
+## Operations
+
+All operations are centred around being executed on a single table (table-centric).
+
+```clojure
+(ns franklin.example (:require [franklin.core :as f]))
+```
+
+In order to demonstrate these operations, assume the following table named ``user_location`` exists with a ``String`` typed partition key named ``username`` and a ``Number`` typed sort key named ``tstamp``.
 
 ### make-table-context
 
