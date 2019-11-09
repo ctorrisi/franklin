@@ -69,7 +69,7 @@ The default `clojure.core.async` channel that is returned from these functions c
 
 #### Async -> Sync
 
-`assoc` a truthy value to the `async?` key of your `item-opts`.
+`assoc` a truthy value to the `sync?` key of your `item-opts`.
 
 ```clojure
 (def c (clojure.core.async/chan))
