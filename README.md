@@ -11,12 +11,12 @@
 
 Leiningen and Boot
 ```clojure
-[ctorrisi/franklin "0.0.1-alpha13"]
+[ctorrisi/franklin "0.0.1-alpha14"]
 ```
 
 deps
 ```clojure
-ctorrisi/franklin {:mvn/version "0.0.1-alpha13"}
+ctorrisi/franklin {:mvn/version "0.0.1-alpha14"}
 ```
 
 ## Friendly?
